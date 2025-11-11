@@ -40,11 +40,12 @@ class StudyMateApp extends StatelessWidget {
 
 /// Shell com bottom navigation FIXO + IndexedStack
 class _Shell extends StatefulWidget {
-  const _Shell({super.key});
+  const _Shell({Key? key}) : super(key: key);
 
   @override
   State<_Shell> createState() => _ShellState();
 }
+
 
 class _ShellState extends State<_Shell> {
   int _index = 0;
