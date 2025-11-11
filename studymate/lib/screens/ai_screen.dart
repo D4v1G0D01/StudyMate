@@ -15,7 +15,7 @@ class AIScreen extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Área da IA', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
             const SizedBox(height: 14),
-            const Text('Pergunte à IA', style: TextStyle(fontSize: 16)),
+            const Text('Pergunte ao seu parceiro', style: TextStyle(fontSize: 16)),
             const SizedBox(height: 12),
 
             // bloco central com a logo
