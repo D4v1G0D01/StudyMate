@@ -12,18 +12,18 @@ class QuizzesScreen extends StatelessWidget {
         Container(
           color: AppColors.ash,
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Quizzes', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 16),
+          child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Quizzes', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+            SizedBox(height: 16),
             Row(
-              children: const [
+              children: [
                 _KpiBox('Média de acertos:', '87%'),
                 SizedBox(width: 16),
                 _KpiBox('Quizzes terminados', '54'),
               ],
             ),
-            const SizedBox(height: 18),
-            _QuizGrid(items: const [
+            SizedBox(height: 18),
+            _QuizGrid(items: [
               _QuizItem('Matemática - Funções Quadráticas', '⚡ 10 Questões'),
               _QuizItem('História do Brasil: República', '⚡ 15 Questões'),
               _QuizItem('Biologia - Genética Básica', '⚡ 10 Questões'),
