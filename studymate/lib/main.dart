@@ -4,6 +4,7 @@ import 'screens/home_screen.dart';
 import 'screens/ai_screen.dart';
 import 'screens/flashcards_screen.dart';
 import 'screens/quizzes_screen.dart';
+import 'package:studymate/screens/Profile_screen.dart';
 
 void main() {
   runApp(const StudyMateApp());
@@ -60,7 +61,20 @@ class _ShellState extends State<_Shell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('StudyMate')),
+      appBar: AppBar(
+        title: const Text('StudyMate'),
+        actions: [
+          IconButton(
+            padding: const EdgeInsets.fromLTRB(0, 0, 20, 0),
+            icon: const Icon(Icons.person),
+            onPressed: (){
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const Profile_screen())
+              );
+            })
+        ],
+      ),
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: _FooterNav(
         current: _index,
@@ -91,8 +105,8 @@ class _FooterNav extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _Item(icon: Icons.home_filled, label: 'Home', index: 0, current: current, onTap: onTap),
-            _Item(icon: Icons.psychology_alt_rounded, label: 'IA', index: 1, current: current, onTap: onTap),
-            _Item(icon: Icons.style_rounded, label: 'Cards', index: 2, current: current, onTap: onTap),
+            _Item(icon: Icons.smart_toy, label: 'IA', index: 1, current: current, onTap: onTap),
+            _Item(icon: Icons.view_agenda, label: 'Cards', index: 2, current: current, onTap: onTap),
             _Item(icon: Icons.quiz_rounded, label: 'Quizzes', index: 3, current: current, onTap: onTap),
           ],
         ),

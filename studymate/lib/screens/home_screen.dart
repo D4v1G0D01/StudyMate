@@ -15,13 +15,13 @@ class HomeScreen extends StatelessWidget {
         _Section(
           title: 'Home',
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Linha dos 3 cards
-              SingleChildScrollView(
+              const SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: const [
+                  children: [
                     StatCard(title: 'Flashcards', value: '42', subtitle: 'Revisados'),
                     SizedBox(width: 16),
                     StatCard(title: 'Quizzes', value: '3', subtitle: 'Completos'),
@@ -46,9 +46,9 @@ class HomeScreen extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: _box(),
-                      child: Column(
+                      child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text('Meta diária', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                           SizedBox(height: 6),
                           Text('44min de\nestudo', style: TextStyle(fontSize: 14)),
@@ -65,9 +65,9 @@ class HomeScreen extends StatelessWidget {
                     width: 140,
                     padding: const EdgeInsets.all(14),
                     decoration: _box(),
-                    child: Column(
+                    child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text('Sequência', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                         SizedBox(height: 10),
                         Text('7', style: TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
