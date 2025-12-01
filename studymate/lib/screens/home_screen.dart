@@ -1,11 +1,39 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:studymate/screens/login.dart';
 import '../theme/app_colors.dart';
-import '../widgets/stat_card.dart';
 import '../widgets/topic_card.dart';
-import '../widgets/progress_bar.dart';
+import 'flashcard_detail_screen.dart'; // 🔹 importa a tela de Flashcards
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  void _openFlashcards(BuildContext context, String title) {
+    // Verifica se há um usuário logado
+    if (FirebaseAuth.instance.currentUser != null) {
+      // 3. Se logado: Navega para a tela de flashcards
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FlashcardDetailScreen(title: title),
+        ),
+      );
+    } else {
+      // 4. Se NÃO logado: Redireciona para a tela de Login
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você precisa estar logado para acessar os flashcards.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const LoginPage(),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,63 +48,40 @@ class HomeScreen extends StatelessWidget {
               // Linha dos 3 cards
               const SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    StatCard(title: 'Flashcards', value: '42', subtitle: 'Revisados'),
-                    SizedBox(width: 16),
-                    StatCard(title: 'Quizzes', value: '3', subtitle: 'Completos'),
-                    SizedBox(width: 16),
-                    StatCard(title: 'Tempo de estudo', value: '44min', subtitle: 'Hoje'),
-                  ],
-                ),
               ),
               const SizedBox(height: 24),
-              const Text('Tópicos Recentes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              const Text('Tópicos Recentes',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              const TopicCard(title: 'Matemática - \nTrigonometria', subtitle: '24 flashcards', progress: 0.65),
-              const SizedBox(height: 12),
-              const TopicCard(title: 'História -\nSegunda Guerra', subtitle: '34 flashcards', progress: 0.45),
-              const SizedBox(height: 12),
-              const TopicCard(title: 'Biologia - Células', subtitle: '18 flashcards', progress: 0.30),
-              const SizedBox(height: 16),
-              // Meta diária + Sequência (caixas pequenas)
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: _box(),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Meta diária', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                          SizedBox(height: 6),
-                          Text('44min de\nestudo', style: TextStyle(fontSize: 14)),
-                          SizedBox(height: 8),
-                          ProgressBar(value: 0.73, height: 8),
-                          SizedBox(height: 6),
-                          Text('44/60', style: TextStyle(fontSize: 13, color: Colors.black54)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Container(
-                    width: 140,
-                    padding: const EdgeInsets.all(14),
-                    decoration: _box(),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Sequência', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                        SizedBox(height: 10),
-                        Text('7', style: TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
-                        Text('dias', style: TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                ],
+
+              // 🔹 Torna os TopicCards clicáveis
+              TopicCard(
+                title: 'Matemática - \nTrigonometria',
+                subtitle: '24 flashcards',
+                progress: 0.65,
+                onContinue: () =>
+                    _openFlashcards(context, 'Matemática - Trigonometria'),
               ),
+              const SizedBox(height: 12),
+
+              TopicCard(
+                title: 'História -\nSegunda Guerra',
+                subtitle: '34 flashcards',
+                progress: 0.45,
+                onContinue: () =>
+                    _openFlashcards(context, 'História - Segunda Guerra'),
+              ),
+              const SizedBox(height: 12),
+
+              TopicCard(
+                title: 'Biologia - Células',
+                subtitle: '18 flashcards',
+                progress: 0.30,
+                onContinue: () =>
+                    _openFlashcards(context, 'Biologia - Células'),
+              ),
+
+              const SizedBox(height: 16),
             ],
           ),
         ),

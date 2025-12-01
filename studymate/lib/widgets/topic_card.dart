@@ -7,6 +7,7 @@ class TopicCard extends StatelessWidget {
   final String subtitle;
   final double progress; // 0.0 .. 1.0
   final String buttonLabel;
+  final VoidCallback? onContinue; // 👈 callback adicionado
 
   const TopicCard({
     super.key,
@@ -14,6 +15,7 @@ class TopicCard extends StatelessWidget {
     required this.subtitle,
     required this.progress,
     this.buttonLabel = 'Continuar',
+    this.onContinue, // 👈 callback opcional
   });
 
   @override
@@ -38,7 +40,7 @@ class TopicCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                onPressed: () {},
+                onPressed: onContinue, // 👈 usa o callback
                 child: Text(buttonLabel),
               ),
             ],
@@ -57,10 +59,13 @@ class _Title extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 2),
-      Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.black54)),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 2),
+        Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+      ],
+    );
   }
 }

@@ -1,12 +1,22 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:studymate/screens/Profile_screen.dart';
+import 'package:studymate/screens/firebase_options.dart';
+import 'package:studymate/screens/login.dart';
 import 'theme/app_colors.dart';
 import 'screens/home_screen.dart';
 import 'screens/ai_screen.dart';
 import 'screens/flashcards_screen.dart';
 import 'screens/quizzes_screen.dart';
-import 'package:studymate/screens/Profile_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform
+  );
+
   runApp(const StudyMateApp());
 }
 
@@ -67,12 +77,23 @@ class _ShellState extends State<_Shell> {
           IconButton(
             padding: const EdgeInsets.fromLTRB(0, 0, 20, 0),
             icon: const Icon(Icons.person),
-            onPressed: (){
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const Profile_screen())
-              );
-            })
+            onPressed: () {
+              // VERIFICAÇÃO: Se existe usuário logado
+              if (FirebaseAuth.instance.currentUser != null) {
+                // Se está logado, vai para o Perfil
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const Profile_screen())
+                );
+              } else {
+                // Se NÃO está logado, vai para o Login
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage())
+                );
+              }
+            }
+          )
         ],
       ),
       body: IndexedStack(index: _index, children: _pages),

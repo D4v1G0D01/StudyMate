@@ -1,37 +1,90 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:studymate/screens/login.dart';
 import '../theme/app_colors.dart';
+import 'flashcard_detail_screen.dart';
 
-class FlashcardsScreen extends StatelessWidget {
+class FlashcardsScreen extends StatefulWidget {
   const FlashcardsScreen({super.key});
 
   @override
+  State<FlashcardsScreen> createState() => _FlashcardsScreenState();
+}
+
+class _FlashcardsScreenState extends State<FlashcardsScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final List<_CardItem> _customCards = [];
+
+  void _addFlashcard() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _customCards.add(_CardItem(text, '1 flashcard'));
+      _controller.clear();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final List<_CardItem> allCards = [
+      const _CardItem('Matemática - Trigonometria', ''),
+      const _CardItem('História - Segunda Guerra', ''),
+      const _CardItem('Biologia - Células', ''),
+      const _CardItem('Química - Tabela Periódica', ''),
+      ..._customCards,
+    ];
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
       children: [
         Container(
           color: AppColors.ash,
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Flashcards', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _MetricBox(title: 'Total de cards', value: '114'),
-                const SizedBox(width: 16),
-                _MetricBox(title: 'Cards dominados', value: '54'),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _Grid(
-              items: const [
-                _CardItem('Matemática - Trigonometria', '24 flashcards'),
-                _CardItem('História - Segunda Guerra', '34 flashcards'),
-                _CardItem('Biologia - Células', '18 flashcards'),
-                _CardItem('Química - Tabela Periódica', '40 flashcards'),
-              ],
-            ),
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Flashcards',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+
+              // 🔹 Campo de texto + botão adicionar
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: InputDecoration(
+                        hintText: "Adicionar novo flashcard...",
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _addFlashcard,
+                    icon: const Icon(Icons.add),
+                    label: const Text("Adicionar"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black87,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              _Grid(items: allCards),
+            ],
+          ),
         ),
       ],
     );
@@ -55,7 +108,9 @@ class _MetricBox extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontSize: 15)),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
         ]),
       ),
     );
@@ -71,7 +126,7 @@ class _Grid extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF8F8F8F), // cinza mais escuro do wireframe
+        color: const Color(0xFF8F8F8F),
         borderRadius: BorderRadius.circular(10),
       ),
       child: LayoutBuilder(
@@ -122,9 +177,32 @@ class _CardItem extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black87,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: () {},
+              onPressed: () {
+                if (FirebaseAuth.instance.currentUser != null) {
+                  // Se ESTIVER logado, navega para a tela de estudo
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FlashcardDetailScreen(title: title),
+                    ),
+                  );
+                } else {
+                  // Se NÃO ESTIVER logado, exibe uma mensagem e leva para o Login
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Você precisa fazer login para estudar.'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                  );
+                }
+              },
               child: const Text('Estudar'),
             ),
           ),
