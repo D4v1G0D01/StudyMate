@@ -1,115 +1,122 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:studymate/theme/app_colors.dart';
+import 'package:studymate/theme/theme_controller.dart';
 import 'package:studymate/widgets/stat_card.dart';
-import 'package:studymate/screens/login.dart'; // Para redirecionar se sair
 
-class Profile_screen extends StatelessWidget {
-  const Profile_screen({super.key});
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
 
-  // Função para deslogar
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  
   void _signOut(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
-    // Fecha a tela de perfil e volta para a home
-    Navigator.pop(context); 
-    
-    // Opcional: Mostrar aviso que saiu
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Você saiu da conta.'))
-    );
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 1. Pegar o usuário atual logado
     final User? user = FirebaseAuth.instance.currentUser;
-
-    // Se por acaso o usuário for nulo (erro raro), mostramos algo padrão
     final String email = user?.email ?? 'Email não encontrado';
-    List<String> partesEmail = email.split('@');
-    final String nome = user?.displayName ?? partesEmail[0]; // O nome precisa ser configurado no cadastro
+    final String nome = user?.displayName ?? email.split('@')[0];
     final String photoUrl = user?.photoURL ?? '';
+
+    // Verifica se o modo atual é escuro para ajustar o Switch
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Perfil"),
-        backgroundColor: Colors.black,
         actions: [
-           // Botão de Sair na barra superior
-           IconButton(
-             icon: const Icon(Icons.logout),
-             onPressed: () => _signOut(context),
-           )
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => _signOut(context),
+          )
         ],
       ),
-      body: Container(
-        color: AppColors.ash,
-        margin: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        padding: const EdgeInsets.fromLTRB(0, 25, 0, 10),
+      // ⚠️ IMPORTANTE: Removemos o Container com cor fixa. 
+      // O Scaffold já usa a cor do tema definida no main.dart
+      body: SizedBox(
         width: double.infinity,
         height: MediaQuery.of(context).size.height,
         child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(10, 25, 10, 10),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               CircleAvatar(
                 radius: 60,
-                backgroundColor: const Color.fromARGB(255, 23, 0, 0),
-                // Se tiver foto no Firebase mostra ela, senão mostra o ícone
+                backgroundColor: AppColors.nero,
                 backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                child: photoUrl.isEmpty 
-                    ? const Icon(Icons.person, size: 75, color: Colors.white) 
+                child: photoUrl.isEmpty
+                    ? const Icon(Icons.person, size: 75, color: Colors.white)
                     : null,
               ),
 
-              const SizedBox(height: 60),
+              const SizedBox(height: 40),
 
-              // CARTÃO 1: Nome (Do Firebase ou Padrão)
               SizedBox(
                 width: 400,
-                child: StatCard(
-                    title: 'Nome', 
-                    value: nome, // Variável do Firebase
-                    subtitle: 'Nome de exibição'
-                ),
-              ),
-              
-              const SizedBox(height: 20),
-
-              // CARTÃO 2: Email (Do Firebase - Esse é o mais importante)
-              SizedBox(
-                width: 400,
-                child: StatCard(
-                    title: 'Email', 
-                    value: email, // Variável do Firebase
-                    subtitle: user?.emailVerified == true ? 'Verificado' : 'Não verificado'
-                ),
+                child: StatCard(title: 'Nome', value: nome, subtitle: 'Nome de exibição'),
               ),
 
               const SizedBox(height: 20),
 
-              // CARTÃO 3: ID do Usuário (UID é único no Firebase)
               SizedBox(
                 width: 400,
-                child: StatCard(
-                    title: 'ID da Conta', 
-                    value: 'ID Seguro', 
-                    subtitle: user?.uid ?? '...'
-                ),
+                child: StatCard(title: 'Email', value: email, subtitle: 'Conta Google'),
               ),
-              
+
               const SizedBox(height: 20),
               
-              // Botão de Sair Grande (Opcional, já tem no AppBar)
-              SizedBox(
-                width: 200,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  onPressed: () => _signOut(context),
-                  child: const Text("Sair da Conta"),
+              Container(
+                width: 400,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  // Usa a cor do cartão do tema atual
+                  color: Theme.of(context).cardColor, 
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade600),
                 ),
-              )
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(isDarkMode ? Icons.dark_mode : Icons.light_mode),
+                        const SizedBox(width: 12),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Aparência", style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text("Modo Escuro", style: TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Switch(
+                      value: isDarkMode,
+                      activeColor: AppColors.success,
+                      onChanged: (val) {
+                        // Chama o controller global
+                        ThemeController.toggleTheme(val);
+                      }, 
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: 400,
+                child: StatCard(title: 'ID', value: 'Protegido', subtitle: user?.uid ?? '...'),
+              ),
             ],
           ),
         ),
