@@ -109,22 +109,6 @@ A aplicação oferece um ambiente seguro e organizado, permitindo que o aluno sa
         │   ├── AppDelegate.swift
         │   ├── Assets.xcassets
         │   │   ├── AppIcon.appiconset
-        │   │   │   ├── Contents.json
-        │   │   │   ├── Icon-App-1024x1024@1x.png
-        │   │   │   ├── Icon-App-20x20@1x.png
-        │   │   │   ├── Icon-App-20x20@2x.png
-        │   │   │   ├── Icon-App-20x20@3x.png
-        │   │   │   ├── Icon-App-29x29@1x.png
-        │   │   │   ├── Icon-App-29x29@2x.png
-        │   │   │   ├── Icon-App-29x29@3x.png
-        │   │   │   ├── Icon-App-40x40@1x.png
-        │   │   │   ├── Icon-App-40x40@2x.png
-        │   │   │   ├── Icon-App-40x40@3x.png
-        │   │   │   ├── Icon-App-60x60@2x.png
-        │   │   │   ├── Icon-App-60x60@3x.png
-        │   │   │   ├── Icon-App-76x76@1x.png
-        │   │   │   ├── Icon-App-76x76@2x.png
-        │   │   │   └── Icon-App-83.5x83.5@2x.png
         │   │   └── LaunchImage.imageset
         │   │   │   ├── Contents.json
         │   │   │   ├── LaunchImage.png
@@ -191,15 +175,6 @@ A aplicação oferece um ambiente seguro e organizado, permitindo que o aluno sa
         ├── Runner
         │   ├── AppDelegate.swift
         │   ├── Assets.xcassets
-        │   │   └── AppIcon.appiconset
-        │   │   │   ├── Contents.json
-        │   │   │   ├── app_icon_1024.png
-        │   │   │   ├── app_icon_128.png
-        │   │   │   ├── app_icon_16.png
-        │   │   │   ├── app_icon_256.png
-        │   │   │   ├── app_icon_32.png
-        │   │   │   ├── app_icon_512.png
-        │   │   │   └── app_icon_64.png
         │   ├── Base.lproj
         │   │   └── MainMenu.xib
         │   ├── Configs
@@ -235,19 +210,6 @@ A aplicação oferece um ambiente seguro e organizado, permitindo que o aluno sa
             ├── generated_plugin_registrant.h
             └── generated_plugins.cmake
         └── runner
-            ├── CMakeLists.txt
-            ├── Runner.rc
-            ├── flutter_window.cpp
-            ├── flutter_window.h
-            ├── main.cpp
-            ├── resource.h
-            ├── resources
-                └── app_icon.ico
-            ├── runner.exe.manifest
-            ├── utils.cpp
-            ├── utils.h
-            ├── win32_window.cpp
-            └── win32_window.h
 ├── READ.me
 .dart_tool/
   - GERENCIAMENTO INTERNO: Pasta gerada pelo Dart/Flutter SDK 
@@ -336,3 +298,4 @@ usuário não cadastrado às funcionalidades do app
 - Gamificação: Implementação de um sistema de níveis, conquistas (badges) e rankings semanais para aumentar o engajamento dos estudantes.
 - Modo Offline Aprimorado: Expandir o uso do banco de dados local para permitir que o usuário baixe decks de flashcards inteiros para estudar sem internet, sincronizando o progresso quando a conexão retornar.
 ------------------------------------------------------------------------
+
