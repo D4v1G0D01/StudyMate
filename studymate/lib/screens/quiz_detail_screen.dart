@@ -53,7 +53,7 @@ class _QuizDetailScreenState extends State<QuizDetailScreen> {
   }
 
   Future<void> generateQuestions() async {
-    const openRouterKey = "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";
+    const openRouterKey = String.fromEnvironment("OPENROUTER_KEY");
     const endpoint = "https://openrouter.ai/api/v1/chat/completions";
 
     setState(() => loading = true);
