@@ -24,7 +24,7 @@ class _AIScreenState extends State<AIScreen> {
       responseText = "";
     });
 
-    const apiKey = String.fromEnvironment("OPENROUTER_KEY");
+    const apiKey = "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"; //String.fromEnvironment("OPENROUTER_KEY");
     const endpoint = "https://openrouter.ai/api/v1/chat/completions";
 
     final body = jsonEncode({

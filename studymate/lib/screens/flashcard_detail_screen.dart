@@ -1,13 +1,18 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 
 class FlashcardDetailScreen extends StatefulWidget {
   final String title;
+  final String topicId;
 
-  const FlashcardDetailScreen({super.key, required this.title});
+  const FlashcardDetailScreen({
+    super.key, 
+    required this.title, 
+    required this.topicId
+  });
 
   @override
   State<FlashcardDetailScreen> createState() => _FlashcardDetailScreenState();
@@ -15,48 +20,18 @@ class FlashcardDetailScreen extends StatefulWidget {
 
 class _FlashcardDetailScreenState extends State<FlashcardDetailScreen> {
   bool loading = false;
-  List<Map<String, String>> flashcards = [];
   int currentIndex = 0;
   bool showAnswer = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadFlashcards();
-  }
-
-  Future<void> _loadFlashcards() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getStringList('flashcards_${widget.title}');
-    if (saved != null) {
-      setState(() {
-        flashcards = saved.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
-      });
-    }
-  }
-
-  Future<void> _saveFlashcards() async {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = flashcards.map((e) => jsonEncode(e)).toList();
-    await prefs.setStringList('flashcards_${widget.title}', encoded);
-  }
+  // Referência para a subcoleção deste tópico específico
+  CollectionReference get cardsRef => FirebaseFirestore.instance
+      .collection('topics')
+      .doc(widget.topicId)
+      .collection('cards');
 
   Future<void> generateFlashcards() async {
-    const openRouterKey = String.fromEnvironment("OPENROUTER_KEY");
+    const openRouterKey = "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";
     const endpoint = "https://openrouter.ai/api/v1/chat/completions";
-
-    final prompt = """
-Gere 10 flashcards únicos e variados sobre o tema "${widget.title}".
-Cada flashcard deve ter:
-Frente: uma pergunta curta ou termo.
-Verso: uma explicação objetiva e correta.
-Evite perguntas semelhantes ou repetidas.
-Formato EXATO:
-1. Frente: ...
-   Verso: ...
-2. Frente: ...
-   Verso: ...
-""";
 
     setState(() {
       loading = true;
@@ -65,6 +40,25 @@ Formato EXATO:
     });
 
     try {
+      final snapshot = await cardsRef.get();
+      String previousCards = snapshot.docs.map((d) => d['frente']).join("; ");
+
+      final prompt = """
+      Gere OBRIGATORIAMENTE 10 flashcards únicos e variados sobre o tema "${widget.title}"
+      CONTEXTO:
+      O usuário já tem estes cards, NÃO GERE PERGUNTAS REPETIDAS OU SIMILARES A ESTAS:
+      $previousCards.
+      Cada flashcard deve ter:
+      Frente: uma pergunta curta ou termo.
+      Verso: uma explicação objetiva e correta.
+      Evite perguntas semelhantes ou repetidas.
+      Formato EXATO:
+      1. Frente: ...
+        Verso: ...
+      2. Frente: ...
+        Verso: ...
+      """;
+
       final response = await http.post(
         Uri.parse(endpoint),
         headers: {
@@ -75,60 +69,55 @@ Formato EXATO:
         },
         body: jsonEncode({
           "model": "mistralai/mistral-7b-instruct",
-          "messages": [
-            {"role": "user", "content": prompt}
-          ],
+          "messages": [{"role": "user", "content": prompt}],
           "temperature": 1.0,
-          "max_tokens": 900,
+          "max_tokens": 1000,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        String text = data["choices"][0]["message"]["content"]
-            .replaceAll(RegExp(r'\r'), '')
-            .replaceAll(RegExp(r'\*'), '')
-            .trim();
-
+        String text = data["choices"][0]["message"]["content"];
         final newCards = _parseFlashcards(text);
 
         if (newCards.isNotEmpty) {
-          setState(() {
-            flashcards.addAll(newCards);
-            loading = false;
+          final batch = FirebaseFirestore.instance.batch();
+          final topicRef = FirebaseFirestore.instance.collection('topics').doc(widget.topicId);
+
+          for (var card in newCards) {
+            final docRef = cardsRef.doc();
+            batch.set(docRef, {
+              'frente': card['frente'],
+              'verso': card['verso'],
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          }
+
+          batch.update(topicRef, {
+            'cardCount': FieldValue.increment(newCards.length),
           });
-          await _saveFlashcards();
-        } else {
-          setState(() => loading = false);
+
+          await batch.commit();
         }
-      } else {
-        print("Erro: ${response.body}");
-        setState(() => loading = false);
       }
     } catch (e) {
-      print("Erro ao gerar flashcards: $e");
-      setState(() => loading = false);
+      print("Erro: $e");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro: $e")));
+    } finally {
+      if (mounted) setState(() => loading = false);
     }
   }
 
-  /// 🔹 Parser robusto (detecção por blocos 1. Frente / Verso)
   List<Map<String, String>> _parseFlashcards(String text) {
-    final regex = RegExp(
-        r'\d+\.\s*Frente:\s*(.*?)\s*Verso:\s*(.*?)(?=\d+\.|$)',
-        dotAll: true,
-        caseSensitive: false);
-    final matches = regex.allMatches(text);
-    return matches
-        .map((m) => {
-              "frente": m.group(1)!.trim(),
-              "verso": m.group(2)!.trim(),
-            })
-        .where((c) => c["frente"]!.isNotEmpty && c["verso"]!.isNotEmpty)
-        .toList();
+    final regex = RegExp(r'\d+\.\s*Frente:\s*(.*?)\s*Verso:\s*(.*?)(?=\d+\.|$)', dotAll: true);
+    return regex.allMatches(text).map((m) => {
+          "frente": m.group(1)!.trim(),
+          "verso": m.group(2)!.trim(),
+        }).toList();
   }
 
-  void nextCard() {
-    if (currentIndex < flashcards.length - 1) {
+  void nextCard(int total) {
+    if (currentIndex < total - 1) {
       setState(() {
         currentIndex++;
         showAnswer = false;
@@ -147,125 +136,102 @@ Formato EXATO:
 
   @override
   Widget build(BuildContext context) {
-    final hasCards = flashcards.isNotEmpty;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          "Flashcards - ${widget.title}",
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
+        title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.nero,
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
-            tooltip: "Gerar novos flashcards",
             onPressed: generateFlashcards,
           ),
         ],
       ),
-      body: Container(
-        color: AppColors.ash,
-        padding: const EdgeInsets.all(20),
-        child: Center(
-          child: loading
-              ? const CircularProgressIndicator()
-              : !hasCards
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+      body: StreamBuilder<QuerySnapshot>(
+        stream: cardsRef.orderBy('createdAt', descending: false).snapshots(),
+        builder: (context, snapshot) {
+          if (loading) return const Center(child: CircularProgressIndicator());
+          
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: ElevatedButton(
+                onPressed: generateFlashcards,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black, 
+                  foregroundColor: Colors.white
+                ),
+                child: const Text("Gerar Flashcards com IA"),
+              ),
+            );
+          }
+
+          final docs = snapshot.data!.docs;
+          if (currentIndex >= docs.length) currentIndex = 0; 
+
+          final currentCard = docs[currentIndex].data() as Map<String, dynamic>;
+
+          return Container(
+            color: AppColors.ash,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Card(
+                  elevation: 6,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    constraints: const BoxConstraints(minHeight: 200),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          "Clique abaixo para gerar 10 flashcards sobre o tema.",
-                          style: TextStyle(fontSize: 16),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: generateFlashcards,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black87,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.all(14),
-                          ),
-                          child: const Text("Gerar Flashcards"),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Card(
-                          color: Colors.white,
-                          elevation: 6,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  "Flashcard ${currentIndex + 1}/${flashcards.length}",
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  showAnswer
-                                      ? flashcards[currentIndex]['verso'] ?? ''
-                                      : flashcards[currentIndex]['frente'] ?? '',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: showAnswer
-                                        ? Colors.green[800]
-                                        : Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () =>
-                              setState(() => showAnswer = !showAnswer),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black87,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 32, vertical: 12),
-                          ),
-                          child: Text(
-                            showAnswer
-                                ? "Ocultar resposta"
-                                : "Mostrar resposta",
-                          ),
+                        Text(
+                          "Flashcard ${currentIndex + 1}/${docs.length}",
+                          style: const TextStyle(color: Colors.grey),
                         ),
                         const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              iconSize: 36,
-                              icon: const Icon(Icons.arrow_back_ios),
-                              onPressed: previousCard,
-                            ),
-                            IconButton(
-                              iconSize: 36,
-                              icon: const Icon(Icons.arrow_forward_ios),
-                              onPressed: nextCard,
-                            ),
-                          ],
+                        Text(
+                          showAnswer ? currentCard['verso'] : currentCard['frente'],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: showAnswer ? Colors.green[800] : Colors.black87,
+                          ),
                         ),
                       ],
                     ),
-        ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => setState(() => showAnswer = !showAnswer),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black87,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  ),
+                  child: Text(showAnswer ? "Ocultar Resposta" : "Mostrar Resposta"),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios),
+                      onPressed: currentIndex > 0 ? previousCard : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios),
+                      onPressed: currentIndex < docs.length - 1 ? () => nextCard(docs.length) : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

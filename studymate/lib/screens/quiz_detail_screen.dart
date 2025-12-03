@@ -1,4 +1,4 @@
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -6,249 +6,301 @@ import '../theme/app_colors.dart';
 
 class QuizDetailScreen extends StatefulWidget {
   final String title;
-  const QuizDetailScreen({super.key, required this.title});
+  final String topicId;
+
+  const QuizDetailScreen({
+    super.key,
+    required this.title,
+    required this.topicId,
+  });
 
   @override
   State<QuizDetailScreen> createState() => _QuizDetailScreenState();
 }
 
 class _QuizDetailScreenState extends State<QuizDetailScreen> {
-  bool loading = true;
-  List<Map<String, dynamic>> questions = [];
-  List<int?> selectedAnswers = [];
-  List<bool> revealedAnswers = [];
+  bool loading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    generateQuestions(initial: true);
+  CollectionReference get questionsRef => FirebaseFirestore.instance
+      .collection('topics')
+      .doc(widget.topicId)
+      .collection('questions');
+
+  Future<void> _submitAnswer(String docId, int selectedIndex, String correctText, String selectedText) async {
+    bool isCorrect = false;
+    
+    // Normalização para comparação (remove espaços e ignora maiúsculas/minúsculas)
+    final sText = selectedText.trim().toLowerCase();
+    final cText = correctText.trim().toLowerCase();
+    
+    // Verifica se a opção contém o texto da resposta ou se começa com a mesma letra (ex: "a)")
+    if (sText.contains(cText) || sText.split(')')[0] == cText.split(')')[0]) {
+      isCorrect = true;
+    }
+
+    // 1. Atualiza a questão individual
+    await questionsRef.doc(docId).update({
+      'userSelected': selectedIndex,
+      'isRevealed': true,
+    });
+
+    // 2. Atualiza o contador global no Tópico Pai (para a tela de listagem)
+    final topicRef = FirebaseFirestore.instance.collection('topics').doc(widget.topicId);
+    await topicRef.update({
+      'answeredCount': FieldValue.increment(1),
+      'correctCount': FieldValue.increment(isCorrect ? 1 : 0),
+    });
   }
 
-  Future<void> generateQuestions({bool initial = false}) async {
-    const openRouterKey = String.fromEnvironment("OPENROUTER_KEY");
+  Future<void> generateQuestions() async {
+    const openRouterKey = "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";
     const endpoint = "https://openrouter.ai/api/v1/chat/completions";
-
-    // Histórico das perguntas já geradas
-    String previousQuestions = questions.isEmpty
-        ? "Nenhuma pergunta anterior."
-        : questions.map((q) => q["pergunta"]).join("\n");
-
-    int offset = questions.length;
-
-    final prompt = """
-Você é um gerador de quizzes inteligentes em português.
-Gere 5 novas perguntas de múltipla escolha **diferentes das anteriores**, sobre o tema "${widget.title}".
-
-Evite repetir tópicos, anos, nomes ou fatos já citados abaixo:
-${previousQuestions}
-
-Cada pergunta deve:
-- Ser objetiva e clara.
-- Ter 4 alternativas (A, B, C, D).
-- Indicar qual é a alternativa correta.
-- Continuar a numeração a partir de ${offset + 1}.
-
-Formato EXATO:
-Pergunta ${offset + 1}: ...
-A) ...
-B) ...
-C) ...
-D) ...
-Correta: ...
-""";
 
     setState(() => loading = true);
 
     try {
+      final topicRef = FirebaseFirestore.instance.collection('topics').doc(widget.topicId);
+      final snapshot = await questionsRef.get();
+      
+      // Pega perguntas anteriores para evitar repetição
+      String contextData = snapshot.docs.map((d) => (d.data() as Map)['pergunta'] ?? '').join(", ");
+
+      final prompt = """
+      Gere 10 perguntas de múltipla escolha sobre "${widget.title}".
+      Evite repetir: $contextData.
+
+      REGRAS DE FORMATAÇÃO (IMPORTANTE):
+      1. Separe CADA pergunta com uma linha contendo apenas "---".
+      2. Não numere as perguntas (Não escreva "1.", apenas o texto).
+      3. Indique a resposta correta com o prefixo "Correta:".
+
+      MODELO EXATO DE SAÍDA:
+      Qual é a capital da França?
+      A) Londres
+      B) Paris
+      C) Berlim
+      D) Madri
+      Correta: B) Paris
+      ---
+      Qual a fórmula da água?
+      A) H2O
+      B) CO2
+      C) O2
+      D) NaCl
+      Correta: A) H2O
+      ---
+      (Continue até completar 10 perguntas)
+      """;
+
       final response = await http.post(
         Uri.parse(endpoint),
         headers: {
           "Authorization": "Bearer $openRouterKey",
           "Content-Type": "application/json",
           "HTTP-Referer": "https://studymate.app",
-          "X-Title": "StudyMate"
+          "X-Title": "StudyMate",
         },
         body: jsonEncode({
           "model": "mistralai/mistral-7b-instruct",
-          "messages": [
-            {"role": "user", "content": prompt}
-          ],
-          "temperature": 0.9, // mais criatividade
-          "max_tokens": 800
+          "messages": [{"role": "user", "content": prompt}],
+          "temperature": 0.5, // Mais baixo para ser mais fiel à formatação
+          "max_tokens": 2500,
         }),
       );
-
-      print("Código da resposta: ${response.statusCode}");
-      print(response.body);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         String text = data["choices"][0]["message"]["content"];
+        
+        print("🤖 RAW TEXT: $text"); // Debug
 
-        // Remove ruídos e tokens indesejados
-        text = text
-            .replaceAll(RegExp(r'<.?s>'), '')
-            .replaceAll(RegExp(r'<.?/?>'), '')
-            .replaceAll(RegExp(r'\*\*'), '')
-            .replaceAll(RegExp(r'---'), '')
-            .replaceAll(RegExp(r'\r'), '')
-            .trim();
-
+        // Chama o parser corrigido
         final newQuestions = _parseQuestions(text);
 
-        setState(() {
-          if (initial) {
-            questions = newQuestions;
-          } else {
-            for (var q in newQuestions) {
-              if (!questions.any((old) => old["pergunta"] == q["pergunta"])) {
-                questions.add(q);
-              }
-            }
-          }
+        print("✅ Perguntas extraídas: ${newQuestions.length}"); // Debug
 
-          selectedAnswers = List.filled(questions.length, null);
-          revealedAnswers = List.filled(questions.length, false);
-          loading = false;
-        });
+        if (newQuestions.isNotEmpty) {
+          final batch = FirebaseFirestore.instance.batch();
+
+          for (var q in newQuestions) {
+            final doc = questionsRef.doc();
+            batch.set(doc, {
+              ...q,
+              'userSelected': null,
+              'isRevealed': false,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          }
+          
+          // Atualiza o contador de total de questões
+          batch.update(topicRef, {
+            'questionCount': FieldValue.increment(newQuestions.length),
+          });
+
+          await batch.commit();
+        } else {
+           throw "O parser retornou 0 perguntas. Verifique o console.";
+        }
       } else {
-        print("Erro: ${response.body}");
-        setState(() => loading = false);
+        throw "Erro API: ${response.statusCode}";
       }
     } catch (e) {
-      print("Erro ao gerar perguntas: $e");
-      setState(() => loading = false);
+      print("Erro: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
     }
   }
 
   List<Map<String, dynamic>> _parseQuestions(String text) {
-    final blocks = text.split(RegExp(r'(?=Pergunta\s*\d*:)'));
-    List<Map<String, dynamic>> qList = [];
+    List<Map<String, dynamic>> result = [];
+    
+    final blocks = text.split('---');
 
     for (var block in blocks) {
-      final lines =
-          block.trim().split('\n').where((l) => l.trim().isNotEmpty).toList();
-      if (lines.isEmpty) continue;
+      final lines = block.trim().split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+      
+      if (lines.length < 4) continue;
 
-      String pergunta = lines.first.trim();
+      String pergunta = "";
       List<String> opcoes = [];
       String? correta;
 
-      for (var line in lines.skip(1)) {
-        final l = line.trim();
-        if (RegExp(r'^[A-D]\)').hasMatch(l)) {
-          opcoes.add(l);
-        } else if (l.toLowerCase().startsWith('correta')) {
-          correta = l.split(':').last.trim();
+      for (var line in lines) {
+        if (RegExp(r'^[A-D]\)').hasMatch(line)) {
+          opcoes.add(line);
+        } else if (line.toLowerCase().startsWith('correta:')) {
+          correta = line.split(':').sublist(1).join(':').trim();
+        } else {
+          if (pergunta.isEmpty) pergunta = line;
         }
       }
 
-      if (pergunta.isNotEmpty && opcoes.isNotEmpty && correta != null) {
-        qList.add({
+      if (pergunta.isNotEmpty && opcoes.length >= 2 && correta != null) {
+        result.add({
           "pergunta": pergunta,
           "opcoes": opcoes,
           "correta": correta,
         });
       }
     }
-
-    return qList;
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          "Quiz - ${widget.title}",
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: Text("Quiz: ${widget.title}"),
         backgroundColor: AppColors.nero,
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
-            tooltip: "Gerar novas perguntas",
-            onPressed: () => generateQuestions(),
-          ),
+            tooltip: "Gerar mais perguntas",
+            onPressed: generateQuestions,
+          )
         ],
       ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : questions.isEmpty
-              ? const Center(child: Text("Não foi possível gerar perguntas."))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: questions.length,
-                  itemBuilder: (_, i) {
-                    final q = questions[i];
-                    final opcoes = q["opcoes"] as List<String>;
-                    final correta = q["correta"] as String;
-
-                    return Card(
-                      elevation: 3,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              q["pergunta"],
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 12),
-
-                            ...List.generate(opcoes.length, (j) {
-                              return RadioListTile<int>(
-                                title: Text(opcoes[j]),
-                                value: j,
-                                groupValue: selectedAnswers[i],
-                                onChanged: revealedAnswers[i]
-                                    ? null
-                                    : (value) {
-                                        setState(() {
-                                          selectedAnswers[i] = value;
-                                        });
-                                      },
-                              );
-                            }),
-
-                            const SizedBox(height: 8),
-
-                            ElevatedButton(
-                              onPressed: revealedAnswers[i]
-                                  ? null
-                                  : () {
-                                      if (selectedAnswers[i] != null) {
-                                        setState(() {
-                                          revealedAnswers[i] = true;
-                                        });
-                                      }
-                                    },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.nero,
-                              ),
-                              child: const Text("Confirmar"),
-                            ),
-
-                            if (revealedAnswers[i])
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  "Resposta correta: $correta",
-                                  style: const TextStyle(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                          ],
+      body: loading 
+        ? const Center(child: CircularProgressIndicator())
+        : StreamBuilder<QuerySnapshot>(
+            stream: questionsRef.orderBy('createdAt').snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.quiz_outlined, size: 80, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      const Text("Nenhuma pergunta encontrada."),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: generateQuestions,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black87,
+                          foregroundColor: Colors.white,
                         ),
+                        child: const Text("Gerar Perguntas com IA"),
                       ),
-                    );
-                  },
-                ),
+                    ],
+                  ),
+                );
+              }
+
+              final docs = snapshot.data!.docs;
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data() as Map<String, dynamic>;
+                  
+                  final opcoes = List<String>.from(data['opcoes'] ?? []);
+                  final correta = data['correta'] ?? "";
+                  final userSelected = data['userSelected'] as int?;
+                  final isRevealed = data['isRevealed'] as bool? ?? false;
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    elevation: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${index + 1}. ${data['pergunta']}", 
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                          ),
+                          const SizedBox(height: 12),
+                          ...List.generate(opcoes.length, (optIndex) {
+                            return RadioListTile<int>(
+                              title: Text(opcoes[optIndex]),
+                              value: optIndex,
+                              groupValue: userSelected,
+                              activeColor: Colors.black,
+                              contentPadding: EdgeInsets.zero,
+                              onChanged: isRevealed ? null : (val) {
+                                // Passa os textos para validar a resposta
+                                _submitAnswer(doc.id, val!, correta, opcoes[val]);
+                              },
+                            );
+                          }),
+                          
+                          if (isRevealed)
+                            Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.green),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      "Correta: $correta", 
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
     );
   }
 }
