@@ -30,7 +30,7 @@ class _FlashcardDetailScreenState extends State<FlashcardDetailScreen> {
       .collection('cards');
 
   Future<void> generateFlashcards() async {
-    const openRouterKey = String.fromEnvironment("OPENROUTER_KEY");
+    const openRouterKey = "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";
     const endpoint = "https://openrouter.ai/api/v1/chat/completions";
 
     setState(() {
