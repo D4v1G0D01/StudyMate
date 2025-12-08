@@ -136,7 +136,8 @@ A aplicação oferece um ambiente seguro e organizado, permitindo que o aluno sa
         │   ├── quiz_detail_screen.dart
         │   └── quizzes_screen.dart
         ├── theme
-        │   └── app_colors.dart
+        │   ├── app_colors.dart
+	│   └── theme_controller.dart
         └── widgets
         │   ├── progress_bar.dart
         │   ├── stat_card.dart
