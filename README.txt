@@ -16,6 +16,19 @@ tais como: flashcards e quizzes estilo ENEM
 O StudyMate é um aplicativo móvel desenvolvido em Flutter, focado em auxiliar estudantes do ensino fundamental e médio a otimizarem suas rotinas de aprendizado. O diferencial do projeto reside na utilização de Inteligência Artificial para potencializar métodos de estudo ativo, como a repetição espaçada via Flashcards e a prática de testes através de Quizzes (estilo ENEM).
 
 A aplicação oferece um ambiente seguro e organizado, permitindo que o aluno salve seu progresso tanto localmente quanto na nuvem. O objetivo central é transformar o estudo passivo em uma experiência interativa e eficiente, utilizando tecnologia moderna para suprir as dificuldades comuns na preparação para provas e vestibulares.
+
+## IMPORTANTE:
+Caso não seja usado o método de chave de API local você devera entrar no site da open router (openrouter.ai), 
+logar no site, gerar uma API key, ir nas linhas de código abaixo e em todas elas substituir "String.fromEnvironment("OPENROUTER_KEY")" por sua API key.
+
+studymate\lib\screens\ai_screen.dart ; linha 27:
+const apiKey = String.fromEnvironment("OPENROUTER_KEY");
+
+studymate\lib\screens\flashcard_detail_screen.dart ; linha 45:
+const openRouterKey = String.fromEnvironment("OPENROUTER_KEY");
+
+studymate\lib\screens\quiz_detail_screen.dart; linha 28:
+const openRouterKey = String.fromEnvironment("OPENROUTER_KEY");
 ------------------------------------------------------------------------
 ## Funcionalidades Principais *
 - Geração de Conteúdo via IA (Quizzes e Flashcards)
